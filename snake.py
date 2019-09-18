@@ -1,8 +1,8 @@
 import pygame
 from random import randint
 
-bit_size = 40
-size = [bit_size * 20, bit_size*10]
+map_size = [50,30]
+bit_size = 20;
 
 # Define some colors
 BLACK = (0, 0, 0)
@@ -10,167 +10,173 @@ WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
+YELLOW = (255,255,153)
 
 class Snake:
-    def __init__(self,scrn):
-        self.head =[0,0]
-        self.dir = [0,1];   
-        self.length=1
-        self.visited = [[0,0]]
-        self.vis_no =len(self.visited);
-        self.screen = scrn;
-        self.next_move=[]
+    def __init__(self):
+        self.body = [[20,9],[20,9],[20,10]];
+        self.dir = 0;   # 0-UP, 1-RIGHT, 2-DOWN, 3-LEFT 
+        self.key_q = []
 
-    def update(self):
-        if self.next_move:
-            tmp = self.next_move.pop(0);
-            if (self.dir[0]!=0 and tmp[0]==0):
-                self.dir = [tmp[0],tmp[1]]
-            if (self.dir[1]!=0 and tmp[1]==0):
-                self.dir = [tmp[0],tmp[1]]
-        self.visited.append([self.head[0],self.head[1]])
+    def move(self,eat=False):
+        if self.key_q:
+            self.dir = self.key_q.pop(0)
 
-        if self.vis_no > self.length:
-            self.visited.pop(0)
-            self.vis_no-=1
+        if self.dir ==0:
+            self.body.insert(0,[self.body[0][0],self.body[0][1]-1])
+        if self.dir ==1:
+            self.body.insert(0,[self.body[0][0]+1,self.body[0][1]])
         
-        self.head[0] += self.dir[0]*bit_size
-        self.head[1] += self.dir[1]*bit_size
-        self.vis_no +=1
-
-    def draw(self):
-        drawRects(self.screen,BLUE,self.visited[-1])
-        for i in range(self.length-1):
-            drawRects(self.screen,RED,self.visited[self.vis_no - 2  - i])
-
+        if self.dir ==2:
+            self.body.insert(0,[self.body[0][0],self.body[0][1]+1])
+        
+        if self.dir ==3:
+            self.body.insert(0,[self.body[0][0]-1,self.body[0][1]])
+        if not eat:
+            self.body.pop()
+    
     def isCollision(self,loc):
-        if self.head[0] == loc[0] and self.head[1] == loc[1]:
+        if (loc[0] == self.body[0][0]) and (loc[1] == self.body[0][1]):
             return True
         else:
             return False
-    def inbounds(self, size):
-        if self.head[0] < 0 or self.head[0] > size[0] - bit_size or self.head[1] < 0 or self.head[1] > size[1] - bit_size:
+        
+    def outOfBounds(self):
+        if self.body[0][0] < 0 or self.body[0][0] > map_size[0] or self.body[0][1] < 0 or self.body[0][1] > map_size[1]:
             return True
         else:
             return False
-
 class Food:
-    def __init__(self,scrn):
-        self.loc = [randint(0,size[0]),randint(0,size[1])]
-        self.loc[0] = self.loc[0] - self.loc[0]%bit_size;
-        self.loc[1] = self.loc[1] - self.loc[1]%bit_size 
-        self.screen = scrn;
-        self.eaten = False
+    def __init__(self):
+        self.loc = [10,10]
 
-    def update(self):
-        if self.eaten:
-            self.loc = [randint(0,size[0]),randint(0,size[1])]
-            self.loc[0] = self.loc[0] - self.loc[0]%bit_size;
-            self.loc[1] = self.loc[1] - self.loc[1]%bit_size 
-            self.eaten = False
+    def newLoc(self):
+        self.loc = [randint(0,map_size[0]),randint(0,map_size[1])]
+        print("VALUES: %i %i" % (self.loc[0],self.loc[1]))
 
-    def draw(self):
-        drawRects(self.screen,GREEN,self.loc)
-
-def drawRects(screen,col, rect):
-    mgn = 2;        # margin width 
-    pygame.draw.rect(screen, WHITE ,(rect[0],rect[1], bit_size, bit_size))
-    pygame.draw.rect(screen, col ,(rect[0]+mgn,rect[1]+mgn, bit_size-mgn*2, bit_size-mgn*2))
-
-def isCollision(rec1,rec2):
-    if abs(rec1[0] - rec2[0]) < bit_size and abs(rec1[1] - rec2[1]) < bit_size:
-        return True
-    else:
-        return False
+def draw(screen,col,map_pt):
+    pygame.draw.rect(screen,col,[map_pt[0]*bit_size,map_pt[1]*bit_size,bit_size,bit_size]) 
 
 def main():
+    #font = pygame.font.SysFont('Comic Sans MS', 10)
     pygame.init()
- 
     # Set the height and width of the screen
-    
-    screen = pygame.display.set_mode(size)
+    screen_size = [(dim+1)*bit_size for dim in map_size]
+    margin = 30
+    screen_size[1] += margin
+    screen = pygame.display.set_mode(screen_size)
     pygame.display.set_caption("Snake")
- 
-    sn = Snake(screen);
-    foo = Food(screen)
-    tmp =None
-    speed = 1
-
+    
     # Bool to track when game finished
     done = False
-     
+    quit = False 
+     # Instantiate
+    sn = Snake()
+    food = Food()
+
+    eat = False
     # Used to manage how fast the screen updates
     clock = pygame.time.Clock()
     
-    delay = 0; 
+    score = 0;
+    
+    # Unlatch keys 
+    up_pressed = False
+    right_pressed = False
+    down_pressed = False
+    left_pressed = False
+
+
     # -------- Main Program Loop -----------
-    while not done:
-        # ---Quit?
+    while not quit:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                done = True
-        
-        if pygame.key.get_pressed()[pygame.K_UP]:
-            tmp =[0,-1];
-        if pygame.key.get_pressed()[pygame.K_DOWN]:
-            tmp = [0,1];
-        if pygame.key.get_pressed()[pygame.K_LEFT]:
-            tmp =[-1,0];
-        if pygame.key.get_pressed()[pygame.K_RIGHT]: 
-            tmp = [1,0];
+                quit = True
+            if event.type == pygame.KEYDOWN:
+                if pygame.key.get_pressed()[pygame.K_SPACE]:
+                    sn.__init__();
+                    food.__init__();
+                    done = False
 
-        if delay % bit_size == 0:
-            if sn.next_move:
-                if tmp != sn.next_move[-1]:
-                    sn.next_move.append(tmp)
-            else:
-                if tmp: 
-                    sn.next_move.append([tmp[0],tmp[1]])
-            sn.update()
-            foo.update()
-            print(sn.visited)
-            print(sn.vis_no)
-            print(sn.next_move)
-            print("\n\n")
+        while not done:
+            scoreText= "Score: %i  Level: %i " % (score,len(sn.body)-2) 
+            # ---Quit?
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    done = True
+                    quit = True
+                if event.type == pygame.KEYDOWN:
+                    if pygame.key.get_pressed()[pygame.K_UP] and sn.dir != 2 and not up_pressed:
+                        sn.key_q.append(0);
+                        up_pressed = True
+                    if pygame.key.get_pressed()[pygame.K_RIGHT] and sn.dir != 3 and not right_pressed:
+                        sn.key_q.append(1);
+                        right_pressed = True
+                    if pygame.key.get_pressed()[pygame.K_DOWN] and sn.dir != 0 and not down_pressed:
+                        sn.key_q.append(2);
+                        down_pressed = True
+                    if pygame.key.get_pressed()[pygame.K_LEFT] and sn.dir != 1 and not left_pressed:
+                        sn.key_q.append(3);
+                        left_pressed = True;
+                if event.type == pygame.KEYUP:
+                    if not pygame.key.get_pressed()[pygame.K_UP] and up_pressed:
+                        up_pressed = False
+                    if not pygame.key.get_pressed()[pygame.K_RIGHT] and right_pressed:
+                        right_pressed = False
+                    if not pygame.key.get_pressed()[pygame.K_DOWN] and down_pressed:
+                        down_pressed = False
+                    if not pygame.key.get_pressed()[pygame.K_LEFT] and left_pressed:
+                        left_pressed = False;
+            
+            sn.move(eat)    
+            eat = False
             
             # Eat Food
-            if sn.isCollision(foo.loc):
-                sn.length+=1
-                foo.eaten = True
-                # Get Faster Over Time
-                if sn.length % 2 == 0:
-                    speed += 1
-                    print("SPEED UP")
-                print("EATEN")
-            
+            if sn.isCollision(food.loc):
+                eat = True
+                inSnake = True
+                while inSnake:
+                    food.newLoc()
+                    if food.loc not in sn.body:
+                        inSnake = False
+                    
             # Hit Edges
-            if sn.inbounds(size):
+            if sn.outOfBounds():
+                print("BOUND")
                 done = True
-                print("EDGE HIT")
-            
+                    
             # Hit self
-            for i in range(sn.length):
-                if sn.isCollision(sn.visited[sn.vis_no - 2 - i]):
-                    done = True
-                    print("SELF HIT")
-            
+            for i,bit in enumerate(sn.body):
+                if i == 0:
+                    continue
+                else:
+                    #print("I: %i BIT: %i %i HEAD: %i %i" % (i,bit[0],bit[1], sn.body[0][0],sn.body[0][1]))
+                    if sn.isCollision(bit):
+                        done = True
+                        print("SELF-HIT") 
+                
+            # --- Drawing
+            if not done:
+                # Set the screen background
+                screen.fill(BLACK)
+                # Draw to the screen
+                for i,bit in enumerate(sn.body):
+                    if i==0:
+                        draw(screen,YELLOW,bit)    
+                    else:
+                        draw(screen,RED,bit)
+                draw(screen,GREEN,food.loc)
+                pygame.draw.rect(screen,WHITE,[0,screen_size[1]- margin, screen_size[0],2]);
 
-        # --- Drawing
-        # Set the screen background
-        screen.fill(BLACK)
-     
-        # Draw to the screen
-        sn.draw()
-        foo.draw()
-        
-        # --- Wrap-up
-        # Limit frames per second
-        clock.tick(100)
-     
-        # Go ahead and update the screen with what we've drawn.
-        pygame.display.flip()
-        delay += 1
-        #pygame.time.wait(10)
+                #text = font.render(scoreText,False,(0,0,0))
+                #screen.blit(text,[20,400])
+                # --- Wrap-up
+                # Limit frames per second
+             
+                # Go ahead and update the screen with what we've drawn.
+                pygame.display.flip()
+                game_speed = (len(sn.body) -3 )*3 + 10
+                clock.tick(game_speed )
      
     # Close everything down
     pygame.quit()
