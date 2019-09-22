@@ -58,8 +58,8 @@ def draw(screen,col,map_pt):
     pygame.draw.rect(screen,col,[map_pt[0]*bit_size,map_pt[1]*bit_size,bit_size,bit_size]) 
 
 def main():
-    #font = pygame.font.SysFont('Comic Sans MS', 10)
     pygame.init()
+    font = pygame.font.Font('freesansbold.ttf', 32)
     # Set the height and width of the screen
     screen_size = [(dim+1)*bit_size for dim in map_size]
     margin = 30
@@ -69,16 +69,18 @@ def main():
     
     # Bool to track when game finished
     done = False
-    quit = False 
+    quit = False
+     
      # Instantiate
     sn = Snake()
     food = Food()
-
     eat = False
+    score = 0;
+    game_speed = 10
+
     # Used to manage how fast the screen updates
     clock = pygame.time.Clock()
     
-    score = 0;
     
     # Unlatch keys 
     up_pressed = False
@@ -96,10 +98,13 @@ def main():
                 if pygame.key.get_pressed()[pygame.K_SPACE]:
                     sn.__init__();
                     food.__init__();
+                    score = 0;
+                    game_speed = 10
+                    eat = False
                     done = False
 
         while not done:
-            scoreText= "Score: %i  Level: %i " % (score,len(sn.body)-2) 
+            scoreText= "Score: %i  Level: %i " % (score,len(sn.body)-2)
             # ---Quit?
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -135,6 +140,7 @@ def main():
             if sn.isCollision(food.loc):
                 eat = True
                 inSnake = True
+                score+= len(sn.body) * game_speed
                 while inSnake:
                     food.newLoc()
                     if food.loc not in sn.body:
@@ -142,7 +148,6 @@ def main():
                     
             # Hit Edges
             if sn.outOfBounds():
-                print("BOUND")
                 done = True
                     
             # Hit self
@@ -150,10 +155,8 @@ def main():
                 if i == 0:
                     continue
                 else:
-                    #print("I: %i BIT: %i %i HEAD: %i %i" % (i,bit[0],bit[1], sn.body[0][0],sn.body[0][1]))
                     if sn.isCollision(bit):
                         done = True
-                        print("SELF-HIT") 
                 
             # --- Drawing
             if not done:
@@ -168,15 +171,20 @@ def main():
                 draw(screen,GREEN,food.loc)
                 pygame.draw.rect(screen,WHITE,[0,screen_size[1]- margin, screen_size[0],2]);
 
-                #text = font.render(scoreText,False,(0,0,0))
-                #screen.blit(text,[20,400])
+                text = font.render(scoreText,False,WHITE)
+                screen.blit(text,[0,screen_size[1]-30])
                 # --- Wrap-up
                 # Limit frames per second
-             
-                # Go ahead and update the screen with what we've drawn.
-                pygame.display.flip()
-                game_speed = (len(sn.body) -3 )*3 + 10
-                clock.tick(game_speed )
+                game_speed = (len(sn.body) -3 ) + 10
+                clock.tick(game_speed)
+                
+            else:
+                replay = font.render("PRESS SPACE TO PLAY AGAIN",False,WHITE)
+                screen.blit(replay,[(map_size[0]/2)*bit_size -200,(map_size[1]/2)*bit_size])    
+            
+            pygame.display.flip()
+            
+
      
     # Close everything down
     pygame.quit()
